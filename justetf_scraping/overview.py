@@ -56,7 +56,7 @@ COLUMN_NAMES = {
     "distributionPolicy": "dividends",
     "ter": "ter",
     "replicationMethod": "replication",
-    "fundSize": "size",
+    "fundSize": "fund_size",
     "sustainable": "is_sustainable",
     "numberOfHoldings": "number_of_holdings",
     # Value return
@@ -96,7 +96,7 @@ IGNORED_COLUMNS = [
     "savingsPlanReady",  # "Savings plan ready from x.xx EUR" text
 ]
 BOOL_COLUMNS = ["securities_lending", "is_sustainable"]
-INT64_COLUMNS = ["size", "number_of_holdings"]
+INT64_COLUMNS = ["fund_size", "number_of_holdings"]
 CATEGORY_COLUMNS = [
     "domicile_country",
     "dividends",

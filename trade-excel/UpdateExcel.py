@@ -1,11 +1,41 @@
 import re
 from typing import List
 import pandas as pd
+from openpyxl.styles import Alignment, Font, PatternFill
 
 import justetf_scraping.overview as justetf
 
-EXCEL_PATH = "E:\Documents\Trade\Test.xlsx"  # TODO change to receive as input
+EXCEL_PATH = "E:\\Documents\\Trade\\Test.xlsx"  # TODO change to receive as input
 SHEET_NAME = "ETF Overview"  # TODO change to receive as input
+TICKER_TITLE = "ETF TICKER"  # TODO change to receive as input
+COLUMN_WIDTH_PADDING = 2
+HEADER_COLOR = PatternFill(start_color="C2FFC2", end_color="C2FFC2", fill_type="solid")
+
+FILTER_COLUMNS = [
+    # IDs
+    "isin",
+    "ticker",
+    # Basic info
+    "name",
+    # "groupValue": "index",
+    "strategy",  # Custom field added during request
+    "domicile_country",
+    "currency",
+    "ter",
+    "replication",
+    "fund_size",
+    "is_sustainable",
+    "number_of_holdings",
+    # Value return
+    "last_year",
+    "last_three_years",
+    # Dividends
+    "last_dividends",
+    "last_year_dividends",
+    # Volatility
+    "last_year_volatility",
+    "last_three_years_volatility",
+]
 
 
 def LoadEtfTickersFromExcel(file_path: str, column_name) -> List[str]:
@@ -15,17 +45,70 @@ def LoadEtfTickersFromExcel(file_path: str, column_name) -> List[str]:
     return column_values
 
 
-def GetTickerInformation(etf_df: pd.DataFrame, etf_tickers: List[str]):
-    cleaned_tickers = [re.sub(r"\..*", "", ticker) for ticker in etf_tickers]
-    filtered_etfs = etfs.loc[etf_df["ticker"].isin(cleaned_tickers)]
-    print(filtered_etfs)
+def CleanTickers(etf_tickers: List[str]) -> List[str]:
+    # Remove suffix from ETF ticker (.DE, .UK, etc.)
+    return [re.sub(r"\..*", "", ticker) for ticker in etf_tickers]
+
+
+def GetTickerInformation(etf_df: pd.DataFrame, etf_tickers: List[str]) -> pd.DataFrame:
+    cleaned_tickers = CleanTickers(etf_tickers)
+
+    # Ensure the column names are stripped of any leading/trailing whitespace
+    etf_df.columns = etf_df.columns.str.strip()
+
+    # Filter ETFs based on the cleaned tickers
+    filtered_etfs = etf_df.loc[etf_df["ticker"].isin(cleaned_tickers)]
+
+    # Create dataframe with cleaned ticker in column to make merge
+    excel_ticker_column = pd.DataFrame(cleaned_tickers, columns=[TICKER_TITLE])
+
+    # Concatenate existing excel data with new data
+    combined_data = pd.merge(
+        excel_ticker_column,
+        filtered_etfs,
+        left_on=TICKER_TITLE,
+        right_on="ticker",
+        how="outer",
+    )
+
+    # Use the original ticker values
+    combined_data[TICKER_TITLE] = etf_tickers
+
+    return combined_data
+
+
+def WriteToExcel(etfs_info: pd.DataFrame):
+    with pd.ExcelWriter(
+        path=EXCEL_PATH, engine="openpyxl", mode="a", if_sheet_exists="replace"
+    ) as excel_writer:
+        etfs_info.to_excel(
+            excel_writer, sheet_name=SHEET_NAME, index=False, header=True
+        )
+        worksheet = excel_writer.sheets[SHEET_NAME]
+        # Auto-fit columns and center align
+        for i, column in enumerate(etfs_info.columns):
+            column_len = max(etfs_info[column].astype(str).map(len).max(), len(column))
+            worksheet.column_dimensions[
+                worksheet.cell(row=1, column=i + 1).column_letter
+            ].width = str(int(column_len) + COLUMN_WIDTH_PADDING)
+
+            for cell in worksheet[worksheet.cell(row=1, column=i + 1).column_letter]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Make the header row thicker
+        worksheet.row_dimensions[
+            1
+        ].height = 30  # Adjust as needed for the desired height
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+            cell.fill = HEADER_COLOR
 
 
 if __name__ == "__main__":
-    etfs = justetf.load_overview(enrich=True)
-    etf_tickers = LoadEtfTickersFromExcel(EXCEL_PATH, "ETF TICKER")
-    print(etf_tickers)
-    GetTickerInformation(etfs, etf_tickers)
+    etfs = justetf.load_overview(enrich=True).reset_index()
 
-    # with pd.ExcelWriter(path=EXCEL_PATH) as excel_writer:
-    #     df.to_excel(sheet_name='Test', excel_writer=excel_writer)
+    filtered_etfs = etfs[FILTER_COLUMNS]
+
+    etf_tickers = LoadEtfTickersFromExcel(EXCEL_PATH, TICKER_TITLE)
+    etfs_info = GetTickerInformation(filtered_etfs, etf_tickers)
+    WriteToExcel(etfs_info)
