@@ -53,7 +53,7 @@ COLUMN_NAMES = {
     "domicileCountry": "domicile_country",
     "fundCurrency": "currency",
     "hasSecuritiesLending": "securities_lending",
-    "distributionPolicy": "dividends",
+    "distributionPolicy": "distribution",
     "ter": "ter",
     "replicationMethod": "replication",
     "fundSize": "fund_size",
@@ -99,7 +99,7 @@ BOOL_COLUMNS = ["securities_lending", "is_sustainable"]
 INT64_COLUMNS = ["fund_size", "number_of_holdings"]
 CATEGORY_COLUMNS = [
     "domicile_country",
-    "dividends",
+    "distribution",
     "replication",
 ]
 FLOAT_COLUMNS = [
