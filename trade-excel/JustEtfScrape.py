@@ -197,7 +197,6 @@ def GetNumberOfHoldings(soup: BeautifulSoup):
     return num_holdings
 
 
-# Change isin to be a list of isins read from excel
 def SeleniumScrape(list_isin: List[str]) -> Dict:
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")

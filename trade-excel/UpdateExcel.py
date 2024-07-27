@@ -3,7 +3,6 @@ import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
 import JustEtfScrape as etf_scrape
 
-CSV_PATH = "E:\\Documents\\Trade\\etf_data.csv"
 EXCEL_PATH = "E:\\Documents\\Trade\\Trade.xlsx"  # TODO change to receive as input
 SHEET_NAME = (
     "justETF Data"  # TODO change to receive as input, also change to investigate
@@ -11,7 +10,6 @@ SHEET_NAME = (
 TICKER_TITLE = "Isin"  # TODO change to receive as input
 COLUMN_WIDTH_PADDING = 3
 HEADER_COLOR = PatternFill(start_color="C2FFC2", end_color="C2FFC2", fill_type="solid")
-
 BREAKLINE = "\n"
 
 COLUMNS = [
