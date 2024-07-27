@@ -1,103 +1,78 @@
-import re
 from typing import List
 import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
+import JustEtfScrape as etf_scrape
 
-import justetf_scraping.overview as justetf
-
-EXCEL_PATH = "E:\\Documents\\Trade\\Trade.xlsx"  # TODO change to receive as input
+CSV_PATH = "E:\\Documents\\Trade\\etf_data.csv"
+EXCEL_PATH = "E:\\Documents\\Trade\\Test.xlsx"  # TODO change to receive as input
 SHEET_NAME = (
     "justETF Data"  # TODO change to receive as input, also change to investigate
 )
-TICKER_TITLE = "ETF Ticker"  # TODO change to receive as input
-COLUMN_WIDTH_PADDING = 2
+TICKER_TITLE = "Isin"  # TODO change to receive as input
+COLUMN_WIDTH_PADDING = 3
 HEADER_COLOR = PatternFill(start_color="C2FFC2", end_color="C2FFC2", fill_type="solid")
 
-FILTER_COLUMNS = [
-    # IDs
-    "isin",
-    "wkn",
-    "ticker",
-    "valor",
-    # Basic info
-    "name",
-    # "groupValue": "index",
-    "inception_date",
-    "strategy",  # Custom field added during request
-    "domicile_country",
-    "currency",
-    "securities_lending",
-    "distribution",
-    "ter",
-    "replication",
-    "fund_size",
-    "is_sustainable",
-    "number_of_holdings",
-    # Value return
-    "yesterday",
-    "last_week",
-    "last_month",
-    "last_three_months",
-    "last_six_months",
-    "last_year",
-    "last_three_years",
-    "last_five_years",
-    # Dividends
-    "last_dividends",
-    "last_year_dividends",
-    # Volatility
-    "last_year_volatility",
-    "last_three_years_volatility",
-    "last_five_years_volatility",
-    # Return/Risk
-    "last_year_return_per_risk",
-    "last_three_years_return_per_risk",
-    "last_five_years_return_per_risk",
-    # Drawdown
-    "max_drawdown",
-    "last_year_max_drawdown",
-    "last_three_years_max_drawdown",
-    "last_five_years_max_drawdown",
+DELIMITER = "\n"
+COLUMNS = [
+    "Isin",
+    "Name",
+    "Ticker",
+    "Currency",
+    "Volatility 1 year",
+    "Volatility 3 years",
+    "Volatility 5 years",
+    "TER",
+    "Distribution",
+    "Replication",
+    "Countries",
+    "Sectors",
+    "Fund size",
+    "Number of holdings",
 ]
 
 
-def LoadEtfTickersFromExcel(file_path: str, column_name) -> List[str]:
+def FlattenListToString(list: List) -> str:
+    return DELIMITER.join(list)
+
+
+def LoadEtfISINFromExcel(file_path: str, column_name) -> List[str]:
     column_values = pd.read_excel(
         file_path, sheet_name=SHEET_NAME, usecols=[column_name], header=0
     )[column_name].tolist()
     return column_values
 
 
-def CleanTickers(etf_tickers: List[str]) -> List[str]:
-    # Remove suffix from ETF ticker (.DE, .UK, etc.)
-    return [re.sub(r"\..*", "", ticker) for ticker in etf_tickers]
+def GetEtfISINInformation(etfs_isins: List[str]) -> pd.DataFrame:
+    etfs_data = etf_scrape.SeleniumScrape(etfs_isins)
 
+    etf_dataframe = pd.DataFrame(columns=COLUMNS)
+    print(etf_dataframe)
 
-def GetTickerInformation(etf_df: pd.DataFrame, etf_tickers: List[str]) -> pd.DataFrame:
-    cleaned_tickers = CleanTickers(etf_tickers)
+    for isin in etf_isins:
+        if not pd.isna(isin):
+            etf_data = etfs_data[isin]
+            row_data = [
+                isin,
+                etf_data[etf_scrape.DICT_NAME],
+                etf_data[etf_scrape.DICT_TICKER_CURRENCY][0],
+                etf_data[etf_scrape.DICT_TICKER_CURRENCY][1],
+                etf_data[etf_scrape.DICT_VOLATILITY][0],
+                etf_data[etf_scrape.DICT_VOLATILITY][1],
+                etf_data[etf_scrape.DICT_VOLATILITY][2],
+                etf_data[etf_scrape.DICT_TER],
+                etf_data[etf_scrape.DICT_DISTRIBUTION],
+                etf_data[etf_scrape.DICT_REPLICATION],
+                FlattenListToString(etf_data[etf_scrape.DICT_COUNTRIES]),
+                FlattenListToString(etf_data[etf_scrape.DICT_SECTORS]),
+                etf_data[etf_scrape.DICT_FUND_SIZE],
+                etf_data[etf_scrape.DICT_NUM_HOLDINGS],
+            ]
+            new_row = pd.DataFrame([row_data], columns=COLUMNS)
+            print(new_row)
+            etf_dataframe = pd.concat([etf_dataframe, new_row], ignore_index=True)
 
-    # Ensure the column names are stripped of any leading/trailing whitespace
-    etf_df.columns = etf_df.columns.str.strip()
-
-    # Filter ETFs based on the cleaned tickers
-    filtered_etfs = etf_df.loc[etf_df["ticker"].isin(cleaned_tickers)]
-
-    # Create dataframe with cleaned ticker in column to make merge
-    excel_ticker_column = pd.DataFrame(cleaned_tickers, columns=[TICKER_TITLE])
-
-    # Concatenate existing excel data with new data
-    combined_data = pd.merge(
-        excel_ticker_column,
-        filtered_etfs,
-        left_on=TICKER_TITLE,
-        right_on="ticker",
-        how="outer",
-    )
-
-    # Use the original ticker values
-    combined_data[TICKER_TITLE] = etf_tickers
-
-    return combined_data
+            print(etf_dataframe)
+    return etf_dataframe
 
 
 def WriteToExcel(etfs_info: pd.DataFrame):
@@ -113,10 +88,15 @@ def WriteToExcel(etfs_info: pd.DataFrame):
             column_len = max(etfs_info[column].astype(str).map(len).max(), len(column))
             worksheet.column_dimensions[
                 worksheet.cell(row=1, column=i + 1).column_letter
-            ].width = str(int(column_len) + COLUMN_WIDTH_PADDING)
+            ].width = str(
+                (int(column_len) + COLUMN_WIDTH_PADDING)
+                / (2 if (column == COLUMNS[10] or column == COLUMNS[11]) else 1)
+            )  # Reduce padding if it is Countries of Sectors columns
 
             for cell in worksheet[worksheet.cell(row=1, column=i + 1).column_letter]:
-                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.alignment = Alignment(
+                    horizontal="center", vertical="center", wrap_text=True
+                )
 
         # Make the header row thicker
         worksheet.row_dimensions[
@@ -128,13 +108,7 @@ def WriteToExcel(etfs_info: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    etfs = justetf.load_overview(
-        local_country="DE", enrich=True
-    ).reset_index()  # TODO Change this to individual calls using the isin
+    etf_isins = LoadEtfISINFromExcel(EXCEL_PATH, TICKER_TITLE)
 
-    filtered_etfs = etfs[FILTER_COLUMNS]
-
-    etf_tickers = LoadEtfTickersFromExcel(EXCEL_PATH, TICKER_TITLE)
-    etfs_info = GetTickerInformation(filtered_etfs, etf_tickers)
-    etfs_info_sorted = etfs_info.sort_values(by=etfs_info.columns[0], ascending=True)
-    WriteToExcel(etfs_info_sorted)
+    etfs_info = GetEtfISINInformation(etf_isins)
+    WriteToExcel(etfs_info)
