@@ -4,7 +4,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 import JustEtfScrape as etf_scrape
 
 CSV_PATH = "E:\\Documents\\Trade\\etf_data.csv"
-EXCEL_PATH = "E:\\Documents\\Trade\\Test.xlsx"  # TODO change to receive as input
+EXCEL_PATH = "E:\\Documents\\Trade\\Trade.xlsx"  # TODO change to receive as input
 SHEET_NAME = (
     "justETF Data"  # TODO change to receive as input, also change to investigate
 )
@@ -12,15 +12,19 @@ TICKER_TITLE = "Isin"  # TODO change to receive as input
 COLUMN_WIDTH_PADDING = 3
 HEADER_COLOR = PatternFill(start_color="C2FFC2", end_color="C2FFC2", fill_type="solid")
 
-DELIMITER = "\n"
+BREAKLINE = "\n"
+
 COLUMNS = [
     "Isin",
     "Name",
-    "Ticker",
+    "Tickers",
     "Currency",
     "Volatility 1 year",
     "Volatility 3 years",
     "Volatility 5 years",
+    "Returns 1 year",
+    "Returns 3 years",
+    "Returns 5 years",
     "TER",
     "Distribution",
     "Replication",
@@ -31,8 +35,8 @@ COLUMNS = [
 ]
 
 
-def FlattenListToString(list: List) -> str:
-    return DELIMITER.join(list)
+def FlattenListToString(list: List, delimiter: str) -> str:
+    return delimiter.join(list)
 
 
 def LoadEtfISINFromExcel(file_path: str, column_name) -> List[str]:
@@ -54,16 +58,19 @@ def GetEtfISINInformation(etfs_isins: List[str]) -> pd.DataFrame:
             row_data = [
                 isin,
                 etf_data[etf_scrape.DICT_NAME],
-                etf_data[etf_scrape.DICT_TICKER_CURRENCY][0],
-                etf_data[etf_scrape.DICT_TICKER_CURRENCY][1],
+                FlattenListToString(etf_data[etf_scrape.DICT_TICKERS], ", "),
+                etf_data[etf_scrape.DICT_CURRENCY],
                 etf_data[etf_scrape.DICT_VOLATILITY][0],
                 etf_data[etf_scrape.DICT_VOLATILITY][1],
                 etf_data[etf_scrape.DICT_VOLATILITY][2],
+                etf_data[etf_scrape.DICT_RETURNS][0],
+                etf_data[etf_scrape.DICT_RETURNS][1],
+                etf_data[etf_scrape.DICT_RETURNS][2],
                 etf_data[etf_scrape.DICT_TER],
                 etf_data[etf_scrape.DICT_DISTRIBUTION],
                 etf_data[etf_scrape.DICT_REPLICATION],
-                FlattenListToString(etf_data[etf_scrape.DICT_COUNTRIES]),
-                FlattenListToString(etf_data[etf_scrape.DICT_SECTORS]),
+                FlattenListToString(etf_data[etf_scrape.DICT_COUNTRIES], BREAKLINE),
+                FlattenListToString(etf_data[etf_scrape.DICT_SECTORS], BREAKLINE),
                 etf_data[etf_scrape.DICT_FUND_SIZE],
                 etf_data[etf_scrape.DICT_NUM_HOLDINGS],
             ]
@@ -90,7 +97,7 @@ def WriteToExcel(etfs_info: pd.DataFrame):
                 worksheet.cell(row=1, column=i + 1).column_letter
             ].width = str(
                 (int(column_len) + COLUMN_WIDTH_PADDING)
-                / (2 if (column == COLUMNS[10] or column == COLUMNS[11]) else 1)
+                / (2 if (column == COLUMNS[13] or column == COLUMNS[14]) else 1)
             )  # Reduce padding if it is Countries of Sectors columns
 
             for cell in worksheet[worksheet.cell(row=1, column=i + 1).column_letter]:

@@ -13,8 +13,10 @@ URL_BASE = "https://www.justetf.com/en/etf-profile.html?isin="
 ID_TO_CHECK = "etf-title"
 
 DICT_NAME = "name"
-DICT_TICKER_CURRENCY = "ticker_currency"
+DICT_TICKERS = "tickers"
+DICT_CURRENCY = "currency"
 DICT_VOLATILITY = "volatility"
+DICT_RETURNS = "returns"
 DICT_TER = "ter"
 DICT_DISTRIBUTION = "distribution"
 DICT_REPLICATION = "replication"
@@ -33,18 +35,24 @@ def GetName(soup: BeautifulSoup):
 
 
 def GetTickerAndCurrency(soup: BeautifulSoup):
-    rows = soup.find_all("tr")
+    tickers = []
 
-    # Loop through rows to find "XETRA" and get the following values
+    h3_tags = soup.find_all("h3")
+    for h3 in h3_tags:
+        if h3.get_text(strip=True) == "Listings":
+            div = h3.find_parent("div")
+
+    table_body = div.find("tbody")
+    rows = table_body.find_all("tr")
     for row in rows:
         divisions = row.find_all("td")
-        if len(divisions) > 0 and divisions[0].get_text(strip=True) == "XETRA":
-            # Extract the text from each cell in the row following the "XETRA" cell
-            currency = divisions[1].get_text(strip=True)
+        if len(divisions) > 0:
+            if divisions[0].get_text(strip=True) == "XETRA":
+                currency = divisions[1].get_text(strip=True)
             ticker = divisions[2].get_text(strip=True)
-            break
-
-    return [ticker, currency]
+            if ticker not in tickers and ticker != "-":
+                tickers.append(ticker)
+    return [tickers, currency]
 
 
 def GetVolatility(soup: BeautifulSoup):
@@ -59,6 +67,24 @@ def GetVolatility(soup: BeautifulSoup):
                 "Volatility 1 year",
                 "Volatility 3 years",
                 "Volatility 5 years",
+            ]:
+                volatility.append(divisions[1].get_text(strip=True))
+
+    return volatility
+
+
+def GetReturns(soup: BeautifulSoup):
+    rows = soup.find_all("tr")
+
+    volatility = []
+
+    for row in rows:
+        divisions = row.find_all("td")
+        if len(divisions) > 0:
+            if divisions[0].get_text(strip=True) in [
+                "1 year",
+                "3 years",
+                "5 years",
             ]:
                 volatility.append(divisions[1].get_text(strip=True))
 
@@ -185,7 +211,7 @@ def SeleniumScrape(list_isin: List[str]) -> Dict:
         if not pd.isna(isin):
             etf_data[isin] = SeleniumScrapeETFs(driver, isin)
 
-    driver.quit()
+    # driver.quit()
 
     return etf_data
 
@@ -207,10 +233,10 @@ def SeleniumScrapeETFs(driver, isin: str):
     soup = BeautifulSoup(html, "html.parser")
 
     etf_data = {}
-
     etf_data[DICT_NAME] = GetName(soup)
-    etf_data[DICT_TICKER_CURRENCY] = GetTickerAndCurrency(soup)
+    etf_data[DICT_TICKERS], etf_data[DICT_CURRENCY] = GetTickerAndCurrency(soup)
     etf_data[DICT_VOLATILITY] = GetVolatility(soup)
+    etf_data[DICT_RETURNS] = GetReturns(soup)
     etf_data[DICT_TER] = GetTotalExpenseRatio(soup)
     etf_data[DICT_DISTRIBUTION] = GetDistribution(soup)
     etf_data[DICT_REPLICATION] = GetReplication(soup)
