@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from typing import List, Dict
 import pandas as pd
 
-CHROMEDRIVER_PATH = "C:\\Users\\Hugo\\Documents\\chromedriver-win64\\chromedriver.exe"
+CHROMEDRIVER_PATH = "./chromedriver-win64/chromedriver.exe"
 BRAVE_PATH = "C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
 URL_BASE = "https://www.justetf.com/en/etf-profile.html?isin="
 ID_TO_CHECK = "etf-title"

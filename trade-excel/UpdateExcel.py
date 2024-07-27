@@ -2,6 +2,9 @@ from typing import List
 import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
 import JustEtfScrape as etf_scrape
+import subprocess
+import tkinter as tk
+from tkinter import messagebox
 
 EXCEL_PATH = "E:\\Documents\\Trade\\Trade.xlsx"  # TODO change to receive as input
 SHEET_NAME = (
@@ -112,8 +115,29 @@ def WriteToExcel(etfs_info: pd.DataFrame):
             cell.fill = HEADER_COLOR
 
 
-if __name__ == "__main__":
-    etf_isins = LoadEtfISINFromExcel(EXCEL_PATH, TICKER_TITLE)
+def UpdateExcelPopup() -> bool:
+    # Create a root window
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
 
-    etfs_info = GetEtfISINInformation(etf_isins)
-    WriteToExcel(etfs_info)
+    # Ask the yes/no question
+    result = messagebox.askyesno(
+        "Update Excel", "Do you wish to update the excel file?"
+    )
+
+    # Destroy the root window
+    root.destroy()
+
+    # Handle the response
+    return result
+
+
+if __name__ == "__main__":
+    if UpdateExcelPopup():
+        etf_isins = LoadEtfISINFromExcel(EXCEL_PATH, TICKER_TITLE)
+
+        etfs_info = GetEtfISINInformation(etf_isins)
+        WriteToExcel(etfs_info)
+
+    with subprocess.Popen(["start", "/WAIT", EXCEL_PATH], shell=True) as doc:
+        doc.wait()  # Waits until the user closes Excel
