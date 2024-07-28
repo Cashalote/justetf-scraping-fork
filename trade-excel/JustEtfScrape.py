@@ -197,10 +197,10 @@ def GetNumberOfHoldings(soup: BeautifulSoup):
     return num_holdings
 
 
-def SeleniumScrape(list_isin: List[str]) -> Dict:
+def SeleniumScrape(list_isin: List[str], browser_path: str) -> Dict:
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
-    options.binary_location = BRAVE_PATH
+    options.binary_location = browser_path
     service = Service(CHROMEDRIVER_PATH)
     driver = webdriver.Chrome(service=service, options=options)
 
@@ -248,4 +248,4 @@ def SeleniumScrapeETFs(driver, isin: str):
 
 
 if __name__ == "__main__":
-    SeleniumScrape(["IE00BK5BQT80"])
+    SeleniumScrape(["IE00BK5BQT80"], BRAVE_PATH)  # For testing

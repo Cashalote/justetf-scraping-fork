@@ -1,12 +1,15 @@
-from typing import List
+from typing import List, Tuple
 import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
 import JustEtfScrape as etf_scrape
 import subprocess
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog
+import json
+import os
 
-EXCEL_PATH = "E:\\Documents\\Trade\\Trade.xlsx"  # TODO change to receive as input
+JSON_FILE_PATH = "./config.json"
+EXCEL_PATH = "E:/Documents/Trade/Trade.xlsx"  # TODO change to receive as input
 SHEET_NAME = (
     "justETF Data"  # TODO change to receive as input, also change to investigate
 )
@@ -14,6 +17,9 @@ TICKER_TITLE = "Isin"  # TODO change to receive as input
 COLUMN_WIDTH_PADDING = 3
 HEADER_COLOR = PatternFill(start_color="C2FFC2", end_color="C2FFC2", fill_type="solid")
 BREAKLINE = "\n"
+
+JSON_PATHS = "Paths"
+JSON_BROWSER = "Browser"
 
 COLUMNS = [
     "Isin",
@@ -47,8 +53,8 @@ def LoadEtfISINFromExcel(file_path: str, column_name) -> List[str]:
     return column_values
 
 
-def GetEtfISINInformation(etfs_isins: List[str]) -> pd.DataFrame:
-    etfs_data = etf_scrape.SeleniumScrape(etfs_isins)
+def GetEtfISINInformation(etfs_isins: List[str], browser_path: str) -> pd.DataFrame:
+    etfs_data = etf_scrape.SeleniumScrape(etfs_isins, browser_path)
 
     etf_dataframe = pd.DataFrame(columns=COLUMNS)
     print(etf_dataframe)
@@ -115,28 +121,143 @@ def WriteToExcel(etfs_info: pd.DataFrame):
             cell.fill = HEADER_COLOR
 
 
-def UpdateExcelPopup() -> bool:
+def ReadPathFromJson(path_field: str) -> str:
+    # Check if the JSON file exists
+    if not os.path.exists(JSON_FILE_PATH):
+        print("JSON file does not exist.")
+        return ""
+
+    with open(JSON_FILE_PATH, "r") as file:
+        try:
+            data = json.load(file)
+        except json.JSONDecodeError:
+            print("Error decoding JSON.")
+            return ""
+
+    # Check if the JSON is not empty and contains the required field
+    if data and (JSON_PATHS in data) and (JSON_BROWSER in data[JSON_PATHS]):
+        return data[JSON_PATHS][path_field]
+    else:
+        print("Required field 'ExePaths' or 'Browser' not found in JSON.")
+        return ""
+
+
+def WritePathToJson(browser_path: str):
+    # Initialize the data structure
+    data = {}
+
+    # Check if the JSON file exists and is not empty
+    if os.path.exists(JSON_FILE_PATH):
+        with open(JSON_FILE_PATH, "r") as file:
+            try:
+                data = json.load(file)
+            except json.JSONDecodeError:
+                print("Error decoding JSON. The file might be empty or corrupted.")
+                data = {}
+
+    # Ensure the necessary structure exists
+    if JSON_PATHS not in data:
+        data[JSON_PATHS] = {}
+
+    # Update the Browser path
+    data[JSON_PATHS][JSON_BROWSER] = browser_path
+
+    # Write the updated data back to the JSON file
+    with open(JSON_FILE_PATH, "w") as file:
+        json.dump(data, file, indent=4)
+    print(f"Browser path '{browser_path}' has been written to the JSON file.")
+
+
+def UpdateExcelPopup(initial_path: str = "") -> Tuple[str, bool, bool]:
+    def browse_file():
+        filepath = filedialog.askopenfilename()
+        if filepath:
+            entry_path.delete(0, tk.END)  # Clear the entry widget
+            entry_path.insert(0, filepath)  # Insert the selected file path
+
+    def on_ok():
+        result_dict["filepath"] = entry_path.get()
+        result_dict["update_excel"] = var_update_excel.get()
+        result_dict["open_excel"] = True
+        root.destroy()
+
+    def on_close():
+        result_dict["filepath"] = initial_path
+        result_dict["update_excel"] = False
+        result_dict["open_excel"] = False
+        root.destroy()
+
+    result_dict = {}
+
     # Create a root window
     root = tk.Tk()
-    root.withdraw()  # Hide the root window
+    root.title("Selector")
 
-    # Ask the yes/no question
-    result = messagebox.askyesno(
-        "Update Excel", "Do you wish to update the excel file?"
+    # Set up the grid layout
+    root.columnconfigure(0, weight=1)
+    root.columnconfigure(1, weight=3)
+    root.columnconfigure(2, weight=1)
+
+    # Add a label and entry for the file path
+    label_path = tk.Label(root, text="Chromium based browser filepath:")
+    label_path.grid(column=0, row=0, padx=10, pady=10, sticky=tk.W)
+
+    entry_path = tk.Entry(root, width=50)
+    entry_path.grid(column=1, row=0, padx=10, pady=10, sticky=tk.W)
+    entry_path.insert(
+        0, initial_path
+    )  # Pre-fill the entry widget with the initial path
+
+    browse_button = tk.Button(root, text="Browse", command=browse_file)
+    browse_button.grid(column=2, row=0, padx=10, pady=10, sticky=tk.W)
+
+    # Add a checkbox to ask if the Excel file should be updated
+    var_update_excel = tk.BooleanVar()
+    checkbox_update_excel = tk.Checkbutton(
+        root, text="Update Excel?", variable=var_update_excel
     )
+    checkbox_update_excel.grid(column=0, row=1, padx=10, pady=10, sticky=tk.W)
 
-    # Destroy the root window
-    root.destroy()
+    # Add OK button
+    ok_button = tk.Button(root, text="OK", command=on_ok)
+    ok_button.grid(column=2, row=2, padx=10, pady=10, sticky=tk.E)
 
-    # Handle the response
-    return result
+    # Handle window close event
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    # Center the window on the screen
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f"{width}x{height}+{x}+{y}")
+
+    # Run the Tkinter main loop
+    root.mainloop()
+
+    return (
+        result_dict["filepath"],
+        result_dict["update_excel"],
+        result_dict["open_excel"],
+    )
 
 
 if __name__ == "__main__":
-    if UpdateExcelPopup():
+    browser_path = ReadPathFromJson(JSON_BROWSER)
+
+    browser_path_final, update_excel, open_excel = UpdateExcelPopup(browser_path)
+
+    if not open_excel:
+        exit()
+
+    if browser_path_final != browser_path:
+        WritePathToJson(browser_path_final)
+
+    if update_excel:
         etf_isins = LoadEtfISINFromExcel(EXCEL_PATH, TICKER_TITLE)
 
-        etfs_info = GetEtfISINInformation(etf_isins)
+        etfs_info = GetEtfISINInformation(etf_isins, browser_path_final)
         WriteToExcel(etfs_info)
 
     with subprocess.Popen(["start", "/WAIT", EXCEL_PATH], shell=True) as doc:
